@@ -10,10 +10,15 @@ Molecular mechanics/Generalized-Born (Poisson–Boltzmann) surface area (MM/GB(P
 ## Install
 ### Install by conda
 To run uni-GBSA, you need install some third-party software( acpype, gmx_MMPBSA, lickit, etc.).
+Clone the repository first.
 ```Bash
-conda create -n gbsa -c conda-forge acpype openmpi mpi4py gromacs
+conda create -n gbsa -c conda-forge acpype openmpi mpi4py
 conda activate gbsa
-pip install unigbsa gmx_MMPBSA>=1.5.6 lickit
+conda install gromacs=*=mpi* -c conda-forge -c bioconda
+pip install gmx_MMPBSA>=1.5.6 lickit
+
+python setup.py build
+python setup.py install
 ```
 
 ### Install by dokcer images
