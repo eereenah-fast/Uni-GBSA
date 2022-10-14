@@ -70,7 +70,7 @@ class GMXEngine(BaseObject):
         if args['gmx'] == 'gmx_mpi':
             cmd = 'mpirun --allow-run-as-root -n {nt} {gmx} mdrun -v -deffnm {jobname}'.format(**args)
         else:
-            cmd = '{gmx} mdrun -v -deffnm {jobname} -nt {nt} -ntmpi 1 '.format(**args)
+            cmd = '{gmx} mdrun -v -deffnm {jobname} -nt {nt} -ntmpi 1 -nb gpu '.format(**args)
         if nsteps:
             cmd += ' -nsteps %d '%nsteps
         RC = os.system(cmd+' >>%s 2>&1 '%self.gmxlog)
