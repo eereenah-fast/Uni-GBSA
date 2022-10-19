@@ -67,43 +67,47 @@ def base_pipeline(receptorfile, ligandfiles, paras, nt=1, mmpbsafile=None, outfi
     pbsaParas = paras['GBSA']
     d = pd.DataFrame({'Frames': 1, 'mode':pbsaParas['modes'], 'complex':0.0,'receptor':0.0,'ligand':0.0,'Internal':0.0,'Van der Waals':0.0,'Electrostatic':0,'Polar Solvation':0.0,'Non-Polar Solvation':0.0,'Gas':0.0,'Solvation':0.0,'TOTAL':0.0}, index=[1])
     for ligandfile in ligandfiles:
-        statu = 'S'
-        ligandfile = os.path.abspath(ligandfile)
-        ligandName = os.path.split(ligandfile)[-1][:-4]
-        if not os.path.exists(ligandName):
-            os.mkdir(ligandName)
-        os.chdir(ligandName)
-
-        grofile = 'complex.pdb'
-        topfile = 'complex.top'
-        logging.info('Build ligand topology: %s'%ligandName)
         try:
-            build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
-        except Exception as e:
-            if len(ligandfiles)==1:
-                traceback.print_exc()
-            statu = 'F_top'
-            dl = d
-            logging.warning('Failed to generate forcefield for ligand: %s'%ligandName)
+            statu = 'S'
+            ligandfile = os.path.abspath(ligandfile)
+            ligandName = os.path.split(ligandfile)[-1][:-4]
+            if not os.path.exists(ligandName):
+                os.mkdir(ligandName)
+            os.chdir(ligandName)
 
-        indexfile = generate_index_file(grofile)
-        
-        if statu == 'S':
+            grofile = 'complex.pdb'
+            topfile = 'complex.top'
+            logging.info('Build ligand topology: %s'%ligandName)
             try:
-                dl = traj_pipeline(grofile, trajfile=grofile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
-            except:
+                build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
+            except Exception as e:
                 if len(ligandfiles)==1:
                     traceback.print_exc()
-                statu = 'F_GBSA'
+                statu = 'F_top'
                 dl = d
-                logging.warning('Failed to run GBSA for ligand: %s'%ligandName)
-        ligandnames.extend([ligandName]*len(dl))
-        status.extend([statu]*len(dl))
-        if df is None:
-            df = dl
-        else:
-            df = pd.concat([df, dl])
-        os.chdir(cwd)
+                logging.warning('Failed to generate forcefield for ligand: %s'%ligandName)
+
+            indexfile = generate_index_file(grofile)
+            
+            if statu == 'S':
+                try:
+                    dl = traj_pipeline(grofile, trajfile=grofile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
+                except:
+                    if len(ligandfiles)==1:
+                        traceback.print_exc()
+                    statu = 'F_GBSA'
+                    dl = d
+                    logging.warning('Failed to run GBSA for ligand: %s'%ligandName)
+            ligandnames.extend([ligandName]*len(dl))
+            status.extend([statu]*len(dl))
+            if df is None:
+                df = dl
+            else:
+                df = pd.concat([df, dl])
+            os.chdir(cwd)
+        except:
+            print('Could not process (base pipeline) molecule', ligandName)
+            os.chdir(cwd)
     df['ligandName'] = ligandnames
     df['status'] = status
     df[KEY].to_csv(outfile, index=False)
@@ -133,65 +137,70 @@ def minim_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outf
     status = []
     d = pd.DataFrame({'Frames': 1, 'mode':pbsaParas['modes'], 'complex':0.0,'receptor':0.0,'ligand':0.0,'Internal':0.0,'Van der Waals':0.0,'Electrostatic':0,'Polar Solvation':0.0,'Non-Polar Solvation':0.0,'Gas':0.0,'Solvation':0.0,'TOTAL':0.0}, index=[1])
     for ligandfile in ligandfiles:
-        statu = 'S'
-        ligandfile = os.path.abspath(ligandfile)
-        ligandName = os.path.split(ligandfile)[-1][:-4]
-        if not os.path.exists(ligandName):
-            os.mkdir(ligandName)
-        os.chdir(ligandName)
-
-        grofile = 'complex.pdb'
-        topfile = 'complex.top'
-        logging.info('Build ligand topology: %s'%ligandName)
         try:
-            build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
-        except Exception as e:
-            if len(ligandfiles)==1:
-                traceback.print_exc()
-                exit(256)
-            statu = 'F_top'
-            dl = d
-            logging.warning('Failed to generate forcefield for ligand: %s'%ligandName)   
+            statu = 'S'
+            ligandfile = os.path.abspath(ligandfile)
+            ligandName = os.path.split(ligandfile)[-1][:-4]
+            if not os.path.exists(ligandName):
+                os.mkdir(ligandName)
+            os.chdir(ligandName)
 
-        logging.info('Running energy minimization: %s'%ligandName)
-        engine = GMXEngine()
-        try:
-            minimgro, outtop = engine.run_to_minim(grofile, topfile, boxtype=simParas['boxtype'], boxsize=simParas['boxsize'], conc=simParas['conc'], maxsol=simParas['maxsol'], nt=nt)
-            cmd = '%s editconf -f %s -o %s -resnr 1 >/dev/null 2>&1'%(GMXEXE, minimgro, grofile)
-            RC = os.system(cmd)
-            if RC!=0:
-                raise Exception('Error convert %s to %s'%(minimgro, grofile))
-            shutil.copy(topfile, outtop)
-        except Exception as e:
-            if len(ligandfiles)==1:
-                traceback.print_exc()
-                exit(256)
-            statu = 'F_md'
-            dl = d
-            logging.warning('Failed to run simulation for ligand: %s'%ligandName)  
-
-
-        indexfile = generate_index_file(grofile)
-        if statu == 'S':
+            grofile = 'complex.pdb'
+            topfile = 'complex.top'
+            logging.info('Build ligand topology: %s'%ligandName)
             try:
-                dl = traj_pipeline(grofile, trajfile=grofile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
-            except:
+                build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
+            except Exception as e:
                 if len(ligandfiles)==1:
                     traceback.print_exc()
-                statu = 'F_GBSA'
+                    exit(256)
+                statu = 'F_top'
                 dl = d
-                logging.warning('Failed to run GBSA for ligand: %s'%ligandName)
-        ligandnames.extend([ligandName]*len(dl))
-        status.extend([statu]*len(dl))
-        if df is None:
-            df = dl
-        else:
-            df = pd.concat([df, dl])
-        if not verbose:
-            engine.clean(pdbfile=grofile)
-        os.chdir(cwd)
+                logging.warning('Failed to generate forcefield for ligand: %s'%ligandName)   
 
-        os.chdir(cwd)
+            logging.info('Running energy minimization: %s'%ligandName)
+            engine = GMXEngine()
+            try:
+                minimgro, outtop = engine.run_to_minim(grofile, topfile, boxtype=simParas['boxtype'], boxsize=simParas['boxsize'], conc=simParas['conc'], maxsol=simParas['maxsol'], nt=nt)
+                cmd = '%s editconf -f %s -o %s -resnr 1 >/dev/null 2>&1'%(GMXEXE, minimgro, grofile)
+                RC = os.system(cmd)
+                if RC!=0:
+                    raise Exception('Error convert %s to %s'%(minimgro, grofile))
+                shutil.copy(topfile, outtop)
+            except Exception as e:
+                if len(ligandfiles)==1:
+                    traceback.print_exc()
+                    exit(256)
+                statu = 'F_md'
+                dl = d
+                logging.warning('Failed to run simulation for ligand: %s'%ligandName)  
+
+
+            indexfile = generate_index_file(grofile)
+            if statu == 'S':
+                try:
+                    dl = traj_pipeline(grofile, trajfile=grofile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
+                except:
+                    if len(ligandfiles)==1:
+                        traceback.print_exc()
+                    statu = 'F_GBSA'
+                    dl = d
+                    logging.warning('Failed to run GBSA for ligand: %s'%ligandName)
+            ligandnames.extend([ligandName]*len(dl))
+            status.extend([statu]*len(dl))
+            if df is None:
+                df = dl
+            else:
+                df = pd.concat([df, dl])
+            if not verbose:
+                engine.clean(pdbfile=grofile)
+            os.chdir(cwd)
+
+            os.chdir(cwd)
+        except:
+            print('Could not process (minimize) molecule', ligandName)
+            os.chdir(cwd)
+            os.chdir(cwd)
     df['ligandName'] = ligandnames
     df['status'] = status
     df[KEY].to_csv(outfile, index=False)
@@ -218,46 +227,50 @@ def md_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outfile
     ligandnames = []
     status = []
     for ligandfile in ligandfiles:
-        print('='*80)
-        ligandfile = os.path.abspath(ligandfile)
-        ligandName = os.path.split(ligandfile)[-1][:-4]
-        if not os.path.exists(ligandName):
-            os.mkdir(ligandName)
-        os.chdir(ligandName)
+        try:
+            print('='*80)
+            ligandfile = os.path.abspath(ligandfile)
+            ligandName = os.path.split(ligandfile)[-1][:-4]
+            if not os.path.exists(ligandName):
+                os.mkdir(ligandName)
+            os.chdir(ligandName)
 
-        grofile = 'complex.pdb'
-        topfile = 'complex.top'
-        xtcfile = 'traj_com.xtc'
-        logging.info('Build ligand topology: %s'%ligandName)
-        build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
+            grofile = 'complex.pdb'
+            topfile = 'complex.top'
+            xtcfile = 'traj_com.xtc'
+            logging.info('Build ligand topology: %s'%ligandName)
+            build_topol(receptor, ligandfile, outpdb=grofile, outtop=topfile, ligandforce=simParas['ligandforcefield'], charge_method=simParas['ligandCharge'], nt=nt)
 
-        logging.info('Running simulation: %s'%ligandName)
-        engine = GMXEngine()
-    
-        mdgro, mdxtc, outtop = engine.run_to_md(grofile, topfile, boxtype=simParas['boxtype'], boxsize=simParas['boxsize'], conc=simParas['conc'], nsteps=simParas['nsteps'], nframe=simParas['nframe'], eqsteps=simParas['eqsteps'], nt=nt)
+            logging.info('Running simulation: %s'%ligandName)
+            engine = GMXEngine()
+        
+            mdgro, mdxtc, outtop = engine.run_to_md(grofile, topfile, boxtype=simParas['boxtype'], boxsize=simParas['boxsize'], conc=simParas['conc'], nsteps=simParas['nsteps'], nframe=simParas['nframe'], eqsteps=simParas['eqsteps'], nt=nt)
 
-        cmd = '%s editconf -f %s -o %s -resnr 1 >/dev/null 2>&1'%(GMXEXE, mdgro, grofile)
-        RC = os.system(cmd)
-        if RC!=0:
-            raise Exception('Error convert %s to %s'%(mdgro, grofile))
+            cmd = '%s editconf -f %s -o %s -resnr 1 >/dev/null 2>&1'%(GMXEXE, mdgro, grofile)
+            RC = os.system(cmd)
+            if RC!=0:
+                raise Exception('Error convert %s to %s'%(mdgro, grofile))
 
-        shutil.copy(topfile, outtop)
-        shutil.copy(mdxtc, xtcfile)
+            shutil.copy(topfile, outtop)
+            shutil.copy(mdxtc, xtcfile)
 
-        #logging.info('Running GBSA: %s'%ligandName)
-        indexfile = generate_index_file(grofile)
-        if 'startframe' not in pbsaParas:
-            pbsaParas["startframe"] = 2
-        deltaG = traj_pipeline(grofile, trajfile=xtcfile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, nt=nt, verbose=verbose)
-        ligandnames.extend([ligandName]*simParas['nframe'])
-        status.extend(['S']*simParas['nframe'])
-        if df is None:
-            df = deltaG
-        else:
-            df = pd.concat([df, deltaG])
-        if not verbose:
-            engine.clean(pdbfile=grofile)
-        os.chdir(cwd)
+            #logging.info('Running GBSA: %s'%ligandName)
+            indexfile = generate_index_file(grofile)
+            if 'startframe' not in pbsaParas:
+                pbsaParas["startframe"] = 2
+            deltaG = traj_pipeline(grofile, trajfile=xtcfile, topolfile=topfile, indexfile=indexfile, pbsaParas=pbsaParas, mmpbsafile=mmpbsafile, nt=nt, verbose=verbose)
+            ligandnames.extend([ligandName]*simParas['nframe'])
+            status.extend(['S']*simParas['nframe'])
+            if df is None:
+                df = deltaG
+            else:
+                df = pd.concat([df, deltaG])
+            if not verbose:
+                engine.clean(pdbfile=grofile)
+            os.chdir(cwd)
+        except:
+            print('Could not process (MD) molecule', ligandName)
+            os.chdir(cwd)
     df['ligandName'] = ligandnames
     df['status'] = status
     df[KEY].to_csv(outfile, index=False)
