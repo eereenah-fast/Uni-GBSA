@@ -237,7 +237,7 @@ def simulation_run():
     os.chdir(cwd)
 
 def traj_pipeline(args=None):
-    from unigbsa.gbsa.pbsarun import PBSA
+    from unigbsa.gbsa.gbsarun import GBSA
     parser = argparse.ArgumentParser(description='Free energy calcaulated by PBSA method.')
     parser.add_argument('-i', dest='INP', help='A pdb file or a tpr file for the trajectory.', required=True)
     parser.add_argument('-p', dest='TOP', help='Gromacs topol file for the system.', required=True)
@@ -263,13 +263,11 @@ def traj_pipeline(args=None):
     else:
         pbsaParas = { "modes":','.join(args.mode)}
 
-    pbsa = PBSA()
+    pbsa = GBSA()
     pbsa.set_paras(complexfile=complexFile, trajectoryfile=trajFile, topolfile=topolFile, indexfile=indexFile, mmpbsafile=mmpbsafile, pbsaParas=pbsaParas, nt=nt)
     pbsa.run(verbose=debug)
-    detal_G = pbsa.extract_result()
-    print("mode    detal_G(kcal/mole)    Std. Dev.")
-    for k, v in detal_G.items():
-        print('%4s    %18.4f    %9.4f'%(k, v[0], v[1]))
+    delta_G = pbsa.extract_result()
+    print(delta_G)
 
 def mmpbsa_plot():
     from unigbsa.gbsa import plots
