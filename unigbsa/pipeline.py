@@ -114,7 +114,7 @@ def base_pipeline(receptorfile, ligandfiles, paras, nt=1, mmpbsafile=None, outfi
 
 
 
-def minim_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outfile='BindingEnergy.csv', verbose=False):
+def minim_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outfile='BindingEnergy.csv', outdir='.', verbose=False):
     """
     It runs the simulation pipeline for each ligand.
     
@@ -122,6 +122,7 @@ def minim_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outf
       receptorfile: The name of the receptor file.
       ligandfiles: a list of ligand files
       paras: a dictionary of parameters
+      outdir: the output directory. Defaults to current directory
       outfile: the output file name. Defaults to BindingEnergy.csv
     """
     simParas = paras['simulation']
@@ -141,6 +142,8 @@ def minim_pipeline(receptorfile, ligandfiles, paras, mmpbsafile=None, nt=1, outf
             statu = 'S'
             ligandfile = os.path.abspath(ligandfile)
             ligandName = os.path.split(ligandfile)[-1][:-4]
+            outdir = os.path.abspath(outdir)
+            ligandName = os.path.join(outdir, ligandName)
             if not os.path.exists(ligandName):
                 os.mkdir(ligandName)
             os.chdir(ligandName)
@@ -284,13 +287,14 @@ def main(args=None):
     parser.add_argument('-d', dest='ligdir', help='Floder contains many ligand files. file format: .mol or .sdf', default=None)
     parser.add_argument('-f', dest='pbsafile', help='gmx_MMPBSA input file. default=None', default=None)
     parser.add_argument('-o', dest='outfile', help='Output file.', default='BindingEnergy.csv')
+    parser.add_argument('-od', dest='outdir', help='Output directory where all files should be saved.', default='.')
     parser.add_argument('-nt', dest='thread', help='Set number of thread to run this program.', type=int, default=1)
     parser.add_argument('--decomp', help='Decompose the free energy. default:False', action='store_true', default=False)
     parser.add_argument('--verbose', help='Keep all the files.', action='store_true', default=False)
     parser.add_argument('-v', '--version', action='version', version="{prog}s ({version})".format(prog="%(prog)", version=__version__))
 
     args = parser.parse_args(args)
-    receptor, ligands, conf, ligdir, outfile, decomposition, nt, verbose = args.receptor, args.ligand, args.config, args.ligdir, args.outfile, args.decomp, args.thread, args.verbose
+    receptor, ligands, conf, ligdir, outfile, outdir, decomposition, nt, verbose = args.receptor, args.ligand, args.config, args.ligdir, args.outfile, args.outdir, args.decomp, args.thread, args.verbose
     
     if ligands is None:
         ligands = []
@@ -323,7 +327,7 @@ def main(args=None):
         paras['GBSA']['modes'] = gbtype
 
     if paras['simulation']['mode'] == 'em':
-        minim_pipeline(receptorfile=receptor, ligandfiles=ligands, paras=paras, outfile=outfile, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
+        minim_pipeline(receptorfile=receptor, ligandfiles=ligands, paras=paras, outfile=outfile, outdir=outdir, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
     elif paras['simulation']['mode'] == 'md':
         md_pipeline(receptorfile=receptor, ligandfiles=ligands, paras=paras, outfile=outfile, mmpbsafile=mmpbsafile, verbose=verbose, nt=nt)
     elif paras['simulation']['mode'] == 'input':
