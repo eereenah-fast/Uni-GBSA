@@ -14,8 +14,7 @@ Clone the repository first.
 ```Bash
 conda create -n unigbsa -c conda-forge acpype openmpi mpi4py gromacs
 conda activate unigbsa
-conda install gromacs=*=mpi* -c conda-forge -c bioconda
-pip install gmx_MMPBSA>=1.5.6 lickit
+pip install gmx_MMPBSA lickit
 
 python setup.py build
 python setup.py install
