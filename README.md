@@ -15,6 +15,7 @@ Clone the repository first.
 conda create -n unigbsa -c conda-forge acpype openmpi mpi4py gromacs
 conda activate unigbsa
 pip install gmx_MMPBSA lickit
+conda install -c conda-forge ocl-icd-system
 
 python setup.py build
 python setup.py install
